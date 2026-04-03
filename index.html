@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html><link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon.png">
+<head>
+<meta charset="UTF-8">
+<title>Moje peniaze</title>
+<style>
+  body { background:#0f172a; color:white; font-family:Arial; display:flex; justify-content:center; padding-top:40px; }
+  .app { width:350px; }
+  h2 { text-align:center; }
+  .box { background:#1e293b; padding:20px; border-radius:15px; margin-bottom:20px; }
+  input { width:100%; padding:10px; margin-top:8px; border-radius:10px; border:none; }
+  button { margin-top:10px; padding:10px; width:100%; background:#22c55e; border:none; border-radius:10px; color:white; font-weight:bold; cursor:pointer; }
+  .item { background:#334155; padding:10px; border-radius:10px; margin-top:10px; }
+  .small { font-size:12px; color:#94a3b8; }
+  .total { margin-top:10px; font-weight:bold; color:#22c55e; }
+  .warning { color:#f87171; font-weight:bold; } /* červená */
+  .caution { color:#facc15; font-weight:bold; } /* oranžová */
+  .ok { color:#22c55e; font-weight:bold; } /* zelená */
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <h2>Ahoj Ronny 👋</h2>
+
+  <!-- ÚVODNÝ KROK - FIXNÉ VÝDAVKY -->
+  <div id="introStep">
+    <div class="box">
+      <h3>Pridať fixný výdavok</h3>
+      <input id="name" placeholder="Názov (napr. Mama)">
+      <input id="note" placeholder="Poznámka (napr. bývanie + leasing)">
+      <input id="amount" type="number" placeholder="Suma €">
+      <label><input type="checkbox" id="auto" checked> Automatický výdavok</label>
+      <button onclick="addExpense()">Pridať</button>
+    </div>
+
+    <div class="box">
+      <h3>Tvoje výdavky</h3>
+      <div id="list"></div>
+      <div class="total" id="total"></div>
+    </div>
+
+    <button onclick="goToPlanning()">Pokračovať</button>
+  </div>
+
+  <!-- PLÁNOVANIE A VÝPLATA - SKRYTÉ NA ZAČIATKU -->
+  <div id="planningStep" style="display:none;">
+    <div class="box">
+      <h3>Tvoja výplata</h3>
+      <input id="salary" type="number" placeholder="Koľko máš €">
+      <button onclick="calculate()">Vypočítať</button>
+      <div class="total" id="result"></div>
+    </div>
+
+    <div class="box" id="planningBox">
+      <h3>Plánovanie</h3>
+      <input id="food" type="number" placeholder="Jedlo €">
+      <input id="fuel" type="number" placeholder="Benzín €">
+      <input id="fun" type="number" placeholder="Zábava €">
+      <label><input type="checkbox" id="bonus"> Chcem viac na zábavu (+20%)</label>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let expenses = JSON.parse(localStorage.getItem("expenses")) || [];
+
+function save() { localStorage.setItem("expenses", JSON.stringify(expenses)); }
+
+function addExpense() {
+  const name = document.getElementById("name").value;
+  const note = document.getElementById("note").value;
+  const amount = parseFloat(document.getElementById("amount").value);
+  const auto = document.getElementById("auto").checked;
+
+  if (!name || !amount) { alert("Vyplň názov a sumu"); return; }
+
+  expenses.push({ name, note, amount, auto });
+  save();
+  render();
+
+  document.getElementById("name").value = "";
+  document.getElementById("note").value = "";
+  document.getElementById("amount").value = "";
+}
+
+function render() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  let total = 0;
+
+  expenses.forEach((e, index) => {
+    const div = document.createElement("div");
+    div.className = "item";
+    if (e.auto) total += e.amount;
+    div.innerHTML = `<strong>${e.name}</strong> - ${e.amount}€ ${e.auto?"🟢":"⚪"}<div class="small">${e.note||""}</div><button onclick="remove(${index})">Zmazať</button>`;
+    list.appendChild(div);
+  });
+
+  document.getElementById("total").innerText = "Automatické výdavky spolu: " + total + "€";
+}
+
+function remove(index) { expenses.splice(index,1); save(); render(); }
+
+// PRECHOD DO PLÁNOVANIA
+function goToPlanning() {
+  document.getElementById("introStep").style.display = "none";
+  document.getElementById("planningStep").style.display = "block";
+}
+
+// VÝPOČET
+function calculate() {
+  const salary = parseFloat(document.getElementById("salary").value);
+  const food = parseFloat(document.getElementById("food").value) || 0;
+  const fuel = parseFloat(document.getElementById("fuel").value) || 0;
+  const fun = parseFloat(document.getElementById("fun").value) || 0;
+  const bonus = document.getElementById("bonus").checked;
+
+  if (!salary) { alert("Zadaj sumu"); return; }
+
+  let autoExpenses = 0;
+  expenses.forEach(e=>{if(e.auto) autoExpenses+=e.amount;});
+
+  let planned = food + fuel + fun;
+  if (bonus) planned *= 0.8; // viac na zábavu = menej odpočítané z celku
+
+  const remaining = salary - autoExpenses - planned;
+
+  let message = "";
+  if(remaining < 0) {
+    message = "<span class='warning'>❌ Nemáš dosť peňazí! Chýba ti "+Math.abs(remaining)+"€</span>";
+  } 
+  else if (remaining < 20) {
+    message = "<span class='caution'>⚠️ Pozor, zostáva málo peňazí: "+remaining+"€</span>";
+  } 
+  else {
+    let free = remaining/2;
+    let savings = remaining/2;
+    message = "<span class='ok'>✅ Po zaplatení všetkého ti zostáva: "+remaining+"€</span><br>"+
+              "💰 Na zábavu: <span style='color:#22c55e;'>"+free+"€</span><br>"+
+              "🏦 Ušetriť: <span style='color:#3b82f6;'>"+savings+"€</span>";
+  }
+
+  document.getElementById("result").innerHTML = message;
+}
+
+render();
+</script>
+</body>
+</html>
