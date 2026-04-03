@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Moje peniaze</title>
 
-<!-- PWA -->
+<!-- PWA / Natívny režim iOS -->
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,66 +20,26 @@ body {
   justify-content:center; 
   padding-top:40px; 
   margin:0;
+  -webkit-tap-highlight-color: transparent;
 }
 .app { 
-  width:90%; 
-  max-width:400px; 
+  width:95%; 
+  max-width:420px; 
+  display:flex;
+  flex-direction:column;
+  align-items:center;
 }
-h2 { 
-  text-align:center; 
-}
-.box { 
-  background:#1e293b; 
-  padding:20px; 
-  border-radius:15px; 
-  margin-bottom:20px; 
-}
-input { 
-  width:100%; 
-  padding:10px; 
-  margin-top:8px; 
-  border-radius:10px; 
-  border:none; 
-  box-sizing:border-box;
-}
-button { 
-  margin-top:10px; 
-  padding:10px; 
-  width:100%; 
-  background:#22c55e; 
-  border:none; 
-  border-radius:10px; 
-  color:white; 
-  font-weight:bold; 
-  cursor:pointer; 
-}
-.item { 
-  background:#334155; 
-  padding:10px; 
-  border-radius:10px; 
-  margin-top:10px; 
-}
-.small { 
-  font-size:12px; 
-  color:#94a3b8; 
-}
-.total { 
-  margin-top:10px; 
-  font-weight:bold; 
-  color:#22c55e; 
-}
-.warning { 
-  color:#f87171; 
-  font-weight:bold; 
-} 
-.caution { 
-  color:#facc15; 
-  font-weight:bold; 
-} 
-.ok { 
-  color:#22c55e; 
-  font-weight:bold; 
-} 
+h2 { text-align:center; margin-bottom:20px; }
+.box { background:#1e293b; padding:25px; border-radius:20px; margin-bottom:20px; width:100%; box-sizing:border-box; }
+input { width:100%; padding:15px; margin-top:10px; border-radius:12px; border:none; box-sizing:border-box; font-size:16px; }
+button { margin-top:15px; padding:15px; width:100%; background:#22c55e; border:none; border-radius:12px; color:white; font-weight:bold; font-size:16px; cursor:pointer; }
+.item { background:#334155; padding:12px; border-radius:12px; margin-top:10px; font-size:16px; }
+.small { font-size:12px; color:#94a3b8; }
+.total { margin-top:10px; font-weight:bold; color:#22c55e; font-size:16px; }
+.warning { color:#f87171; font-weight:bold; } 
+.caution { color:#facc15; font-weight:bold; } 
+.ok { color:#22c55e; font-weight:bold; } 
+label { font-size:14px; margin-top:10px; display:block; }
 </style>
 </head>
 <body>
@@ -88,7 +48,6 @@ button {
 
 <h2>Ahoj Ronny 👋</h2>
 
-<!-- Fixné výdavky -->
 <div id="introStep">
   <div class="box">
     <h3>Pridať fixný výdavok</h3>
@@ -108,7 +67,6 @@ button {
   <button onclick="goToPlanning()">Pokračovať</button>
 </div>
 
-<!-- Plánovanie -->
 <div id="planningStep" style="display:none;">
   <div class="box">
     <h3>Tvoja výplata</h3>
@@ -164,6 +122,19 @@ function remove(index) { expenses.splice(index,1); save(); render(); }
 
 function goToPlanning() { document.getElementById("introStep").style.display = "none"; document.getElementById("planningStep").style.display = "block"; }
 
+function notifyLowMoney(amount) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    new Notification("Pozor!", { body: "Zostáva málo peňazí: " + amount + "€" });
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        new Notification("Pozor!", { body: "Zostáva málo peňazí: " + amount + "€" });
+      }
+    });
+  }
+}
+
 function calculate() {
   const salary = parseFloat(document.getElementById("salary").value);
   const food = parseFloat(document.getElementById("food").value) || 0;
@@ -181,7 +152,10 @@ function calculate() {
   const remaining = salary - autoExpenses - planned;
   let message = "";
   if(remaining < 0) message = "<span class='warning'>❌ Nemáš dosť peňazí! Chýba ti "+Math.abs(remaining)+"€</span>";
-  else if (remaining < 20) message = "<span class='caution'>⚠️ Pozor, zostáva málo peňazí: "+remaining+"€</span>";
+  else if (remaining < 20) { 
+    message = "<span class='caution'>⚠️ Pozor, zostáva málo peňazí: "+remaining+"€</span>";
+    notifyLowMoney(remaining);
+  }
   else {
     let free = remaining/2;
     let savings = remaining/2;
@@ -193,6 +167,14 @@ function calculate() {
 }
 
 render();
+
+// Service Worker registrácia
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+  .then(() => console.log('Service Worker zaregistrovaný'))
+  .catch(err => console.log('Chyba SW:', err));
+}
 </script>
+
 </body>
 </html>
